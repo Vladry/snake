@@ -7,8 +7,7 @@ import com.codenjoy.dojo.services.Point;
 import com.codenjoy.dojo.services.PointImpl;
 import com.codenjoy.dojo.snake.model.Elements;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class YourSolver implements Solver<Board> {
     private Board b;
@@ -16,77 +15,77 @@ public class YourSolver implements Solver<Board> {
     private Point head;
     private Point ap;
     private final Node[][] graph;
+    LinkedList<Node> stack;
 
     public YourSolver() {
-
         this.graph = new Node[15][15];
+        this.stack = new LinkedList<>();
     }
 
-    private void addNeighborsToCurrentVertice(int x, int y) {
-        if (x > 1) { //если есть хоть одно место до левой стенки -создаём соседа слева от вершины
-            graph[x - 1][y] = handleLeftNeighbor(x, y);
+    public boolean step(Node node, Node to, int step, Queue<Node> q) {
+        if (node.visitedForward) {
+            return false;
+        } else {
+            node.visitedForward = true;
         }
-        if (x < b.size() - 1) { //если есть хоть одно место до правой стенки -создаём соседа справа от вершины
-            graph[x + 1][y] = handleRightNeighbor(x, y);
+        node.step = node.level = step;
+        step++;
+
+        if (node.point.getX() == to.point.getX()
+                && node.point.getY() == to.point.getY()) {
+            System.out.printf("target's been found at:  [%d,%d]  ",node.point.getX(), node.point.getY());
+            return true;
         }
-        if (y < b.size() - 1) { //если есть хоть одно место снизу от y до нижней границы
-            graph[x][y + 1] = handleUpperNeighbor(x, y);
-        }
-        if (y > 1) { //если есть хоть одно место снизу от y до нижней границы
-            graph[x][y - 1] = handleDownNeighbor(x, y);
-        }
+        return step(node, to, step, q);
     }
 
-    private Node handleLeftNeighbor(int x, int y) {
-        Node neighbor = graph[x - 1][y];
-        if (b.isAt(x - 1, y, Elements.NONE)) {
-            if (neighbor == null) {
-                neighbor = new Node(new PointImpl(x - 1, y));
+    public void genWave(Point from, Point to) {
+        Node root = graph[from.getX()][from.getY()];
+        Node target = graph[to.getX()][to.getY()];
+        Queue<Node> q = new LinkedList<>();
+        int step = 1;
+        q.add(root);
+        Node current;
+        while (q.size() > 0) {
+            current = q.poll();
+            current.step = current.level = step;
+            boolean res = step(current, target, step, q);
+            if (res){
+                System.out.println("we've found target!!!!");
             }
-            neighbor.neighbors.add(new Node(new PointImpl(x, y)));
+//            System.out.print("node[" + current.point.getX() + "][" + current.point.getY() + "]:  ");
+//            System.out.println("level: " + current.level);
+            step++;
+            for (int i = 0; i < current.adj.size(); i++) {
+                q.add(current.adj.get(i));
+            }
+
+
         }
-        return neighbor;
+
+
     }
 
-    private Node handleRightNeighbor(int x, int y) {
-        Node neighbor = graph[x + 1][y];
-        if (b.isAt(x + 1, y, Elements.NONE)) {
-            if (neighbor == null) {
-                neighbor = new Node(new PointImpl(x + 1, y));
-            }
-            neighbor.neighbors.add(new Node(new PointImpl(x, y)));
-        }
-        return neighbor;
-    }
 
-    private Node handleUpperNeighbor(int x, int y) {
-        Node neighbor = graph[x][y + 1];
-        if (b.isAt(x, y + 1, Elements.NONE)) {
-            if (neighbor == null) {
-                neighbor = new Node(new PointImpl(x, y + 1));
-            }
-            neighbor.neighbors.add(new Node(new PointImpl(x, y)));
+    private void handleNeighbor(int x, int y, Node neighbor) {
+        Node current = graph[x][y];
+        if (neighbor != null) {
+            neighbor.adj.add(current);
+            current.adj.add(neighbor);
         }
-        return neighbor;
-    }
-
-    private Node handleDownNeighbor(int x, int y) {
-        Node neighbor = graph[x][y - 1];
-        if (b.isAt(x, y - 1, Elements.NONE)) {
-            if (neighbor == null) {
-                neighbor = new Node(new PointImpl(x, y - 1));
-            }
-            neighbor.neighbors.add(new Node(new PointImpl(x, y)));
-        }
-        return neighbor;
     }
 
     private void buildGraph() {  //матрица графа
         for (int x = 1; x < b.size(); x++) {
             for (int y = 1; y < b.size(); y++) {
-                if (b.isAt(x, y, Elements.NONE, Elements.GOOD_APPLE)) {
+                if (b.isAt(x, y, Elements.NONE, Elements.GOOD_APPLE)
+                        || (x == b.getHead().getX() && y == b.getHead().getY())) { //-head тоже добавить в граф!!!!
                     graph[x][y] = new Node(new PointImpl(x, y)); //создаём вершину
-                    addNeighborsToCurrentVertice(x, y);
+
+                    handleNeighbor(x, y, graph[x - 1][y]);
+                    handleNeighbor(x, y, graph[x + 1][y]);
+                    handleNeighbor(x, y, graph[x][y + 1]);
+                    handleNeighbor(x, y, graph[x][y - 1]);
                 }
             }
         }
@@ -95,8 +94,8 @@ public class YourSolver implements Solver<Board> {
     public void printGraph() {
         for (int x = 1; x < b.size(); x++) {
             for (int y = 1; y < b.size(); y++) {
-                System.out.print("graph Point at: [" + x + " " + y +"]" );
-                if(graph[x][y] != null ){
+                System.out.print("graph Point at: [" + x + " " + y + "]");
+                if (graph[x][y] != null) {
                     System.out.print(" PointX: " + graph[x][y].point.getX());
                     System.out.println(" PointY: " + graph[x][y].point.getY());
                 } else {
@@ -107,12 +106,25 @@ public class YourSolver implements Solver<Board> {
     }
 
     private class Node {
-        List<Node> neighbors;
+        List<Node> adj;
         Point point;
+        Node previous;
+        boolean visitedForward;
+        boolean visitedBackward;
+        int step;
+        int level;
 
         public Node(Point p) {
             this.point = p;
-            neighbors = new ArrayList<>();
+            this.adj = new ArrayList<>();
+            this.visitedForward = this.visitedBackward = false;
+            this.step = 0;
+            this.level = 0;
+        }
+
+        public Node(Point p, int level) {
+            this(p);
+            this.level = level;
         }
     }
 
@@ -146,12 +158,14 @@ public class YourSolver implements Solver<Board> {
     public String get(Board board) {
 //      System.out.println(board.toString());
         this.b = board;
-        buildGraph();
-//        printGraph();
+        buildGraph();  // printGraph();
 
-        this.ap = b.getApples().get(0);
         this.head = b.getHead();
-        Point ap = b.getApples().get(0);
+        this.ap = b.getApples().get(0);
+
+        genWave(this.head, this.ap);
+
+
         System.out.println("ap: " + ap);
         Point st = b.getStones().get(0);
         List<Point> snake = b.getSnake();
