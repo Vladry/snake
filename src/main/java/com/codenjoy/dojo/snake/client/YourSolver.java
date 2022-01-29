@@ -15,9 +15,10 @@ public class YourSolver implements Solver<Board> {
     private Direction currDir;
     private Point head;
     private Point ap;
+    private Point rock;
     private final Node[][] graph;
-    LinkedList<Node> stack;
     List<Point> snake;
+    LinkedList<Node> stack;
 
     public YourSolver() {
         this.graph = new Node[15][15];
@@ -26,65 +27,77 @@ public class YourSolver implements Solver<Board> {
     }
 
 
-//    @Override
-//    public boolean equals(Object o) {
-//        if(o == null) return false;
-//        if (this == o) return true;
-//        if(this.getClass() != o.getClass()) {
-//            return false;
-//        } else {
-//            Node val = (Node) o;
-//            if (this.point.getX() == val.point.getX() && this.point.getY() == val.point.getY()) return true;
-//            return false;
-//        }
-//    }
-
-    private Node removeAdjContainingTail(Node root) {
-        List<Node> newAdj = root.adj.stream()
-                .filter(el -> {
-                    for (int i = 0; i < this.snake.size(); i++) {
-                        if (el.point.getX() == snake.get(i).getX()
-                                && el.point.getY() == snake.get(i).getY()
-                        ) {
-                            return false;
-                        }
-                    }
-                    return true;
-                })
-                .collect(Collectors.toList());
-        root.adj = newAdj;
-        return root;
-    }
-
-    public Direction getShortDirToTarget(Point from, Point to) {
-        if (b == null || b.size() == 0 || b.getHead() == null) return currDir;
-//        Node target = graph[to.getX()][to.getY()];
-        Node rootWithOldAdj = graph[from.getX()][from.getY()];
-        Node root = removeAdjContainingTail(rootWithOldAdj); //удаляем возможные root.adj содержащие хвост змейки
-//        Node root = rootWithOldAdj;
-
-        return root.adj.stream()
-                .min(Comparator.comparingDouble(el -> el.getDistance(to)))
-                .map(el -> getDirection(el.point, this.head, this.currDir))
-                .orElse(this.currDir);
-    }
-
-
-
-    public Direction getDirection(Point p, Point head, Direction currDir) {
-        Direction dir = currDir;
-        if (p.getX() < head.getX()) {
-            dir = Direction.LEFT;
-        } else if (p.getX() > head.getX() && currDir != Direction.LEFT) {
-            dir = Direction.RIGHT;
-        } else if (p.getY() < head.getY() && currDir != Direction.UP) {
-            dir = Direction.DOWN;
-        } else if (p.getY() > head.getY() && currDir != Direction.DOWN) {
-            dir = Direction.UP;
+    int counter;
+    public Node step(Node node, Node to, int step) {
+        if (node.visited) {
+            return null;
         } else {
-            dir = currDir;
+            node.visited = true;
         }
-        return dir;
+        node.level = step;
+        counter++;
+//        System.out.println("step Path: " + counter);
+        if (node.point.getX() == to.point.getX()
+                && node.point.getY() == to.point.getY()) {
+//            System.out.printf("target's been found at:  [%d,%d]  ", node.point.getX(), node.point.getY());
+            return node;
+        }
+        return null;
+    }
+
+    public void getPath(Node node) {
+        this.stack.push(node);
+        while (node.previous != null) {
+            stack.push(node.previous);
+            if (stack.size() % 1000 == 0) {
+                System.out.println("stack.size(): " + stack.size());
+            }
+        }
+        System.out.println("path is: ");
+        while (stack.peek() != null) {
+            Point p = stack.pop().point;
+            System.out.printf("[%d,%d]", p.getX(), p.getY());
+        }
+    }
+
+    public Direction runWaveAlgorythmLi(Point from, Point to) {
+
+        Node root = graph[from.getX()][from.getY()];
+        Node target = graph[to.getX()][to.getY()];
+        Queue<Node> q = new LinkedList<>();
+        int step = 1;
+        counter = 0;
+        q.add(root);
+        Node newNode = null;
+        Node current = null;
+        Node res;
+        double prevDistance = Double.MAX_VALUE;
+        double currentDistance = 0;
+        while (q.size() > 0) {
+            current = q.poll();
+            currentDistance = current.point.distance(to);
+            if (currentDistance <= prevDistance) {
+                res = step(current, target, step);
+
+                if (res != null) {
+                System.out.println("we've found target!!!!");
+//                getPath(res);
+                    System.out.printf("RETURNING:  res.point[%d,%d]\n", res.point.getX(), res.point.getY());
+
+                    return Direction.UP;   //TODO переделать!
+                }
+            }
+            prevDistance = currentDistance;
+
+            for (int i = 0; i < current.adj.size(); i++) {
+                newNode = current.adj.get(i);
+                newNode.previous = current;
+                newNode.level = step;
+                q.add(newNode);
+            }
+            step++;
+        }
+        return Direction.UP; //TODO переделать!
     }
 
 
@@ -92,18 +105,20 @@ public class YourSolver implements Solver<Board> {
 
     @Override
     public String get(Board board) {
+        initVariables(board);
 
-        this.b = board;
-        this.snake = b.getSnake();
-        buildGraph();
-        this.head = b.getHead();
-        this.ap = b.getApples().get(0);
-
-        currDir = getShortDirToTarget(this.head, this.ap);
+        if (this.snake.size() < 3) {
+            currDir = getShortDirToTarget(this.head, this.ap); //до малой длины, вычисляем по наименьшему пути
+        } else {
+            runWaveAlgorythmLi(this.head, this.ap);
+            currDir = getShortDirToTarget(this.head, this.ap); //большая длина змени- подключаем волновой алгоритм
+        }
 
         avoidWalls();
         return currDir.toString();
     }
+
+
 
 
     public static void main(String[] args) {
@@ -113,7 +128,6 @@ public class YourSolver implements Solver<Board> {
                 new YourSolver(),
                 new Board());
     }
-
 
 
     // Недоделанный, временно отложенный код:
@@ -167,84 +181,6 @@ public class YourSolver implements Solver<Board> {
 
 
 
-    int counter;
-
-    public Node step(Node node, Node to, int step) {
-        if (node.visitedForward) {
-            return null;
-        } else {
-            node.visitedForward = true;
-        }
-        node.level = step;
-//        System.out.println("step: " + step);
-        counter++;
-//        System.out.println("step Path: " + counter);
-        if (node.point.getX() == to.point.getX()
-                && node.point.getY() == to.point.getY()) {
-//            System.out.printf("target's been found at:  [%d,%d]  ", node.point.getX(), node.point.getY());
-            return node;
-        }
-        return null;
-    }
-
-    public void getPath(Node node) {
-        this.stack.push(node);
-        while (node.previous != null) {
-            stack.push(node.previous);
-            if (stack.size() % 1000 == 0) {
-                System.out.println("stack.size(): " + stack.size());
-            }
-        }
-        System.out.println("path is: ");
-        while (stack.peek() != null) {
-            Point p = stack.pop().point;
-            System.out.printf("[%d,%d]", p.getX(), p.getY());
-        }
-    }
-
-    public Node genWave2(Point from, Point to) {
-
-        Node root = graph[from.getX()][from.getY()];
-        Node target = graph[to.getX()][to.getY()];
-        Queue<Node> q = new LinkedList<>();
-        int step = 1;
-        counter = 0;
-        q.add(root);
-        Node newNode = null;
-        Node current = null;
-        Node res;
-        double prevDistance = Double.MAX_VALUE;
-        double currentDistance = 0;
-        while (q.size() > 0) {
-            current = q.poll();
-            currentDistance = current.point.distance(to);
-            if (currentDistance <= prevDistance) {
-                res = step(current, target, step);
-
-                if (counter == 1) {
-                    System.out.printf("RETURNING:  current.point[%d,%d]\n", current.point.getX(), current.point.getY());
-                }
-
-                if (res != null) {
-//                System.out.println("we've found target!!!!");
-//                getPath(res);
-//                    System.out.printf("RETURNING:  res.point[%d,%d]\n", res.point.getX(), res.point.getY());
-                    return res;  // выйдем из genWave()
-                }
-            }
-            prevDistance = currentDistance;
-
-            for (int i = 0; i < current.adj.size(); i++) {
-                newNode = current.adj.get(i);
-                newNode.previous = current;
-                newNode.level = step;
-                q.add(newNode);
-            }
-            step++;
-        }
-        return current;
-    }
-
     /*        System.out.println("ap: " + ap);
         Point st = b.getStones().get(0);
         List<Point> snake = b.getSnake();
@@ -257,6 +193,15 @@ public class YourSolver implements Solver<Board> {
 //      System.out.println(board.toString());
 
     // done -код, который завершен и доделан
+    private void initVariables(Board board) {
+        this.b = board;
+        this.snake = b.getSnake();
+        buildGraph();
+        this.head = b.getHead();
+        this.ap = b.getApples().get(0);
+        this.rock = b.getStones().get(0);
+    }
+
     private void buildGraph() {  //матрица графа
         if (b == null || b.size() == 0 || b.getHead() == null) return;
 
@@ -275,6 +220,7 @@ public class YourSolver implements Solver<Board> {
             }
         }
     }
+
     private void handleNeighborIfExists(int x, int y, Node neighbor) {
         Node current = graph[x][y];
         if (neighbor != null) {
@@ -282,12 +228,14 @@ public class YourSolver implements Solver<Board> {
             current.adj.add(neighbor);
         }
     }
+
     private void avoidWalls() {
         checkoutLeftBorder();
         checkoutRightBorder();
         checkoutBottomBorder();
         checkoutUpperBorder();
     }
+
     public void checkoutLeftBorder() {
         if (head.getX() == 1 && currDir == Direction.LEFT) {
 
@@ -298,6 +246,7 @@ public class YourSolver implements Solver<Board> {
             }
         }
     }
+
     public void checkoutRightBorder() {
         if (head.getX() == b.size() - 1 && currDir == Direction.RIGHT) {
 
@@ -308,6 +257,7 @@ public class YourSolver implements Solver<Board> {
             }
         }
     }
+
     public void checkoutBottomBorder() {
         if (head.getY() == 1 && currDir == Direction.DOWN) {
 
@@ -318,6 +268,7 @@ public class YourSolver implements Solver<Board> {
             }
         }
     }
+
     public void checkoutUpperBorder() {
         if (head.getY() == b.size() - 2 && currDir == Direction.UP) {
             if (head.getX() < ap.getX()) {
@@ -327,12 +278,12 @@ public class YourSolver implements Solver<Board> {
             }
         }
     }
+
     private static class Node {
         List<Node> adj;
         Point point;
         Node previous;
-        boolean visitedForward;
-        boolean visitedBackward;
+        boolean visited;
         int level;
 
         private double getDistance(Point target) {
@@ -342,7 +293,7 @@ public class YourSolver implements Solver<Board> {
         public Node(Point p) {
             this.point = p;
             this.adj = new LinkedList<>();
-            this.visitedForward = this.visitedBackward = false;
+            this.visited = false;
             this.level = 0;
         }
 
@@ -353,6 +304,50 @@ public class YourSolver implements Solver<Board> {
         }
 
 
+    }
+
+    private Node removeAdjContainingTail(Node root) {
+        List<Node> newAdj = root.adj.stream()
+                .filter(el -> {
+                    for (int i = 0; i < this.snake.size(); i++) {
+                        if (el.point.getX() == snake.get(i).getX()
+                                && el.point.getY() == snake.get(i).getY()
+                        ) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+        root.adj = newAdj;
+        return root;
+    }
+
+    public Direction getShortDirToTarget(Point from, Point to) {
+        if (b == null || b.size() == 0 || b.getHead() == null) return currDir;
+        Node rootWithOldAdj = graph[from.getX()][from.getY()];
+        Node root = removeAdjContainingTail(rootWithOldAdj); //удаляем возможные root.adj содержащие хвост змейки
+
+        return root.adj.stream()    // вернем соседа с кратчайшим путем
+                .min(Comparator.comparingDouble(el -> el.getDistance(to)))
+                .map(el -> getDirection(el.point, this.head, this.currDir))
+                .orElse(this.currDir);
+    }
+
+    public Direction getDirection(Point p, Point head, Direction currDir) {
+        Direction dir = null;
+        if (p.getX() < head.getX()) {
+            dir = Direction.LEFT;
+        } else if (p.getX() > head.getX() && currDir != Direction.LEFT) {
+            dir = Direction.RIGHT;
+        } else if (p.getY() < head.getY() && currDir != Direction.UP) {
+            dir = Direction.DOWN;
+        } else if (p.getY() > head.getY() && currDir != Direction.DOWN) {
+            dir = Direction.UP;
+        } else {
+            dir = currDir;
+        }
+        return dir;
     }
 
 }
