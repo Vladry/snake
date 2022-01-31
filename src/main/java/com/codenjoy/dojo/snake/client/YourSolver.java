@@ -18,107 +18,116 @@ public class YourSolver implements Solver<Board> {
     private Point rock;
     private final Node[][] graph;
     List<Point> snake;
-    LinkedList<Node> stack;
+    LinkedList<Node> path;
 
     public YourSolver() {
         this.graph = new Node[15][15];
-        this.stack = new LinkedList<>();
+        this.path = new LinkedList<>();
         currDir = Direction.UP;
     }
 
 
-    int counter;
     public Node step(Node node, Node to, int step) {
-        if (node.visited) {
-            return null;
-        } else {
-            node.visited = true;
-        }
+        if (node.visited) return null;
+
+        node.visited = true;
         node.level = step;
-        counter++;
-//        System.out.println("step Path: " + counter);
         if (node.point.getX() == to.point.getX()
                 && node.point.getY() == to.point.getY()) {
-//            System.out.printf("target's been found at:  [%d,%d]  ", node.point.getX(), node.point.getY());
+            System.out.printf("target's been found at:  [%d,%d]  ", node.point.getX(), node.point.getY());
             return node;
         }
         return null;
     }
 
-    public void getPath(Node node) {
-        this.stack.push(node);
-        while (node.previous != null) {
-            stack.push(node.previous);
-            if (stack.size() % 1000 == 0) {
-                System.out.println("stack.size(): " + stack.size());
+    private void getPath(Node dest) {
+        path.clear();
+        this.path.push(dest);
+        while (dest!=null) {
+//            System.out.println("level: " + dest.level);
+            boolean shouldPop = false;
+            for (int i = 0; i < dest.adj.size(); i++) {
+                Node neighbour = dest.adj.get(i);
+                if (neighbour.level < dest.level  && neighbour.level!=0) {
+                    if (shouldPop) {
+                        path.pop();
+                    }
+                    shouldPop = true;
+                    dest = neighbour;
+//                    System.out.println("dest: " + dest);
+//                    System.out.println("dest.level: " + dest.level);
+                    this.path.push(dest);
+//                    System.out.printf("stacking [%d,%d]", dest.point.getX(), dest.point.getY());
+                } else {
+                    shouldPop = false;
+                }
+
             }
-        }
-        System.out.println("path is: ");
-        while (stack.peek() != null) {
-            Point p = stack.pop().point;
-            System.out.printf("[%d,%d]", p.getX(), p.getY());
         }
     }
 
-    public Direction runWaveAlgorythmLi(Point from, Point to) {
+    public LinkedList<Node> runWaveAlgorythmLi(Point from, Point to) {
 
         Node root = graph[from.getX()][from.getY()];
         Node target = graph[to.getX()][to.getY()];
         Queue<Node> q = new LinkedList<>();
         int step = 1;
-        counter = 0;
         q.add(root);
         Node newNode = null;
         Node current = null;
-        Node res;
+
         double prevDistance = Double.MAX_VALUE;
         double currentDistance = 0;
         while (q.size() > 0) {
             current = q.poll();
             currentDistance = current.point.distance(to);
             if (currentDistance <= prevDistance) {
-                res = step(current, target, step);
 
+                Node res = step(current, target, step);
+                step++;
                 if (res != null) {
-                System.out.println("we've found target!!!!");
-//                getPath(res);
-                    System.out.printf("RETURNING:  res.point[%d,%d]\n", res.point.getX(), res.point.getY());
-
-                    return Direction.UP;   //TODO переделать!
+                    System.out.println("we've found target!!!!");
+//                    getPath(res);
+                    break; //вышли из while, коль найден первый попавшийся путь
+// TODO но, тут же можно первый путь записать в список списков и тут же начать искать следующий путь!!
+//в рез-те, будем анализировать все пути из списка списков и выбирать лучший!
                 }
             }
             prevDistance = currentDistance;
 
             for (int i = 0; i < current.adj.size(); i++) {
                 newNode = current.adj.get(i);
-                newNode.previous = current;
-                newNode.level = step;
+//                newNode.previous = current;
+//                newNode.level = step;
                 q.add(newNode);
             }
-            step++;
+
         }
-        return Direction.UP; //TODO переделать!
+        return this.path;
     }
-
-
 
 
     @Override
     public String get(Board board) {
         initVariables(board);
 
-        if (this.snake.size() < 3) {
+        if (this.snake.size() < 1) {
             currDir = getShortDirToTarget(this.head, this.ap); //до малой длины, вычисляем по наименьшему пути
         } else {
-            runWaveAlgorythmLi(this.head, this.ap);
             currDir = getShortDirToTarget(this.head, this.ap); //большая длина змени- подключаем волновой алгоритм
+            runWaveAlgorythmLi(this.head, this.ap);
+
+            System.out.println("path: ");
+            for (int i = 0; i < path.size(); i++) {
+                System.out.print(this.path.get(i));
+            }
+//            printGraph();
+
         }
 
         avoidWalls();
         return currDir.toString();
     }
-
-
 
 
     public static void main(String[] args) {
@@ -166,14 +175,16 @@ public class YourSolver implements Solver<Board> {
     }
 
     public void printGraph() {
-        for (int x = 1; x < b.size(); x++) {
-            for (int y = 1; y < b.size(); y++) {
-                System.out.print("graph Point at: [" + x + " " + y + "]");
+        for (int y = b.size()-2; y > 0 ; y--) {
+            System.out.println();
+            for (int x = 1; x < b.size()-1; x++) {
                 if (graph[x][y] != null) {
-                    System.out.print(" PointX: " + graph[x][y].point.getX());
-                    System.out.println(" PointY: " + graph[x][y].point.getY());
+                    System.out.print("["+graph[x][y].point.getX()+",");
+                    System.out.print(graph[x][y].point.getY()+"]");
+                    System.out.printf("%7d\t", graph[x][y].level);
+
                 } else {
-                    System.out.println("null");
+                    System.out.print("[null]\t");
                 }
             }
         }
@@ -303,7 +314,12 @@ public class YourSolver implements Solver<Board> {
             this.level = level;
         }
 
-
+        @Override
+        public String toString() {
+            return "{ " +
+                    "level:" + level +
+                    " [" + point.getX() + "," + point.getY() + "] }\n";
+        }
     }
 
     private Node removeAdjContainingTail(Node root) {
