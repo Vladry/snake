@@ -44,7 +44,7 @@ public class YourSolver implements Solver<Board> {
         this.path.push(dest);
         boolean stop = false;
         int counter = 0;
-        while (!stop && counter < 1000000) {
+        while (!stop && counter < 100000) {
             counter++;
             boolean shouldPop = false;
             for (int i = 0; i < dest.adj.size(); i++) {
@@ -85,7 +85,7 @@ public class YourSolver implements Solver<Board> {
         q.offer(root);
         int counter = 0;
 
-        while (q.size() > 0 && allowed && counter < 1000000) {
+        while (q.size() > 0 && allowed && counter < 100000) {
             counter++;
             current = q.poll();
 
@@ -130,15 +130,12 @@ public class YourSolver implements Solver<Board> {
                 Point momentaryTarget = null;
                 try {
                     if (root.getDistance(this.ap) < 3) {
-//                        System.out.println("distance head-to-ap:  "+ new Node(this.head).getDistance(this.ap) );
                         currDir = getShortDirToTarget(this.head, this.ap);
                     } else {
-//                        System.out.println("distance head-to-ap:  "+ new Node(this.head).getDistance(this.ap) );
                         momentaryTarget = path.get(3).point;
                         System.out.println("momentaryTarget" + momentaryTarget);
                         currDir = getShortDirToTarget(this.head, (momentaryTarget!=null) ?
                                 momentaryTarget: this.ap ); //большая длина змени- подключаем волновой алгоритм
-//                        currDir = getShortDirToTarget(this.head, this.ap);
                     }
 
                 } catch (Exception e) {
@@ -154,7 +151,7 @@ public class YourSolver implements Solver<Board> {
 //                printGraph();
 
             }
-//            avoidWalls();
+            avoidWalls();
         }
         return currDir.toString();
     }
